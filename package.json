@@ -1,0 +1,22 @@
+{
+  "name": "vtk-visualizer",
+  "version": "1.0.0",
+  "description": "DICOM viewer using vtk.js",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "webpack serve --mode=development",
+    "build": "webpack --progress --mode=production"
+  },
+  "author": "Jean-Yves Yang",
+  "license": "ISC",
+  "devDependencies": {
+    "kw-web-suite": "^11.1.0",
+    "webpack": "^5.24.3",
+    "webpack-cli": "^4.5.0",
+    "webpack-dev-server": "^3.11.2"
+  },
+  "dependencies": {
+    "vtk.js": "^11.1.3"
+  }
+}
