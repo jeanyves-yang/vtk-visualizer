@@ -17,6 +17,13 @@ module.exports = {
         loader: 'babel-loader',
         exclude: /node_modules/,
       },
+      {
+          test: /\.css$/i,
+          use: ["style-loader", "css-loader"],
+      },
+      { test: /\.html$/, loader: 'html-loader' },
+      { test: /\.(png|jpg)$/, use: 'url-loader?limit=81920' },
+      { test: /\.svg$/, use: [{ loader: 'raw-loader' }] },
     ].concat(vtkRules),
   },
   resolve: {
