@@ -1,14 +1,12 @@
-import vtkGenericRenderWindow from 'vtk.js/Sources/Rendering/Misc/GenericRenderWindow';
-import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
-
 import vtkVolume from 'vtk.js/Sources/Rendering/Core/Volume';
 import vtkVolumeMapper from 'vtk.js/Sources/Rendering/Core/VolumeMapper';
-
 import vtkXMLImageDataReader from 'vtk.js/Sources/IO/XML/XMLImageDataReader';
-import vtkHttpDataSetReader from 'vtk.js/Sources/IO/Core/HttpDataSetReader';
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
 import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction';
+import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
 import vtkColorMaps from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction/ColorMaps';
+import vtkDataArray from 'vtk.js/Sources/Common/Core/DataArray';
+
 
 // Set up actor and mapper
 const actor = vtkVolume.newInstance();
@@ -16,35 +14,32 @@ const mapper = vtkVolumeMapper.newInstance();
 
 const container = document.querySelector('#container');
 
-// Create renderer
+container.style.position = 'relative';
+
+// Create renderer and control bar
 const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
-    background: [0, 0, 0],
-    container,
-    containerStyle: {height: '100%'},
-  });
-  const renderer = fullScreenRenderer.getRenderer();
-  const renderWindow = fullScreenRenderer.getRenderWindow();
-  renderWindow.getInteractor().setDesiredUpdateRate(15.0);
+  background: [0, 0, 0],
+  container,
+  containerStyle: {height:'100%'},
+});
 
-// Create Widget container
-const widgetContainer = document.createElement('div');
-widgetContainer.style.position = 'absolute';
-widgetContainer.style.top = 'calc(10px + 1em)';
-widgetContainer.style.left = '5px';
-widgetContainer.style.background = 'rgba(255, 255, 255, 0.3)';
-document.querySelector('body').appendChild(widgetContainer);
+const renderer = fullScreenRenderer.getRenderer();
+const renderWindow = fullScreenRenderer.getRenderWindow();
+renderWindow.getInteractor().setDesiredUpdateRate(15.0);
 
-// Create Label for preset
-const labelContainer = document.createElement('div');
-labelContainer.style.position = 'absolute';
-labelContainer.style.top = '5px';
-labelContainer.style.left = '5px';
-labelContainer.style.width = '100%';
-labelContainer.style.color = 'white';
-labelContainer.style.textAlign = 'center';
-labelContainer.style.userSelect = 'none';
-labelContainer.style.cursor = 'pointer';
-document.querySelector('body').appendChild(labelContainer);
+// Controller ID of the volume to display
+let volumeId = 0;
+
+// First call to render before the event listener
+updateRender();
+
+// Event listener on any key pressed, will go to the next volume
+document.addEventListener('keydown', updateRender);
+
+function updateRender() {
+renderer.removeAllActors();
+
+console.log("volumeId: ", volumeId);
 
 // Set up LUT, opacity
 const lookupTable = vtkColorTransferFunction.newInstance();
@@ -64,20 +59,67 @@ actor.getProperty().setRGBTransferFunction(0, lookupTable);
 lookupTable.applyColorMap(vtkColorMaps.getPresetByName('Cool to Warm'));
 lookupTable.setMappingRange(0, 256);
 
-for (let i = 0; i < 50; i++) {
-    console.log("test");
 const reader = vtkXMLImageDataReader.newInstance({ fetchGzip: true });
+const readerMagnitude = vtkXMLImageDataReader.newInstance({ fetchGzip: true });
 reader
-  .setUrl(`http://192.168.0.16/4DFlow_testData/4D_anatomic/0${i}.vti`, { loadData: true })
+  .setUrl(`http://192.168.0.16/4DFlow_testData/4D_anatomic/0${volumeId}.vti`, { loadData: true })
   .then(() => reader.loadData())
   .then(() => {
+    readerMagnitude
+    .setUrl(`http://192.168.0.16/4DFlow_testData/4D_magnitude/${volumeId}.vti`, { loadData: true })
+    .then(() => readerMagnitude.loadData())
+    .then(() => { 
     // Map input read from vti files
-    mapper.setInputConnection(reader.getOutputPort());
+    mapper.setInputConnection(readerMagnitude.getOutputPort());
+    const ctfun = vtkColorTransferFunction.newInstance();
+    //const range2 = readerMagnitude.getOutputData().getPointData().getScalars().getRange();
+        //console.log(range2);
+
+    //reader.getOutputData().getPointData().setActiveScalars(readerMagnitude.getOutputData().getPointData().getScalars());
+    //const range = readerMagnitude.getOutputData().getPointData().getScalars().getRange();
+    //lookupTable.setMappingRange(...readerMagnitude.getOutputData().getPointData().getScalars().getRange());
+
+    const dimensions = reader.getOutputData().getDimensions();
+    const typedArray = readerMagnitude.getOutputData().getPointData().getScalars().getData();
+    const origTypedArray = reader.getOutputData().getPointData().getScalars().getData();
+    let min = 10000;
+    let max = 0;
+    let newArray =  new Float32Array(dimensions);
+
+
+    for (let x = 0; x < dimensions[0]; x++) {
+      for (let y = 0; y < dimensions[1]; y++) {
+        for (let z = 0; z < dimensions[2]; z++) {
+          const idx = (x + y * dimensions[0] + z * dimensions[0] * dimensions[1]);
+
+          // Associate to the pixel value in the anatomical data a color based on the flux magnitude (more red -> higher magnitude)
+          //ctfun.addRGBPoint(origTypedArray[idx], typedArray[idx]*255, 0.0, 0.0);
+          newArray[idx] = (origTypedArray[idx] + typedArray[idx]) /2;
+
+          if(origTypedArray[idx] > max) {
+            max = origTypedArray[idx];
+          }
+          if(origTypedArray[idx] < min) {
+            min = origTypedArray[idx];
+          }
+        }
+      }
+    }
+    const dataArray = vtkDataArray.newInstance({
+      numberOfComponents: 1,
+      values: newArray,
+    });
+    dataArray.setName('scalars');
+    reader.getOutputData().getPointData().setScalars(dataArray);
+    console.log("min: ", min);
+    console.log("max: ", max);
+
+    //actor.getProperty().setRGBTransferFunction(0, ctfun);
+    
 
     // Update LUT based on input range
     const range = reader.getOutputData().getPointData().getScalars().getRange();
-    console.log(range);
-    lookupTable.setMappingRange(...range);
+    lookupTable.setMappingRange(...reader.getOutputData().getPointData().getScalars().getRange());
     lookupTable.updateRange();
 
     const sampleDistance =
@@ -118,5 +160,27 @@ reader
     // Reset camera and render the scene
     renderer.resetCamera();
     renderWindow.render();
+
+    // Increment the volume id
+    if(volumeId < 50)
+    {
+        volumeId = volumeId + 1;
+    }
+    else
+    {
+        volumeId = 0;
+    }
   });
-}
+
+  });
+};
+
+
+/*const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+    background: [0, 0, 0],
+    container,
+    containerStyle: {height: '100%'},
+  });
+  const renderer = fullScreenRenderer.getRenderer();
+  const renderWindow = fullScreenRenderer.getRenderWindow();*/
+
