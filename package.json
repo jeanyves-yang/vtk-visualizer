@@ -2,10 +2,10 @@
   "name": "vtk-visualizer",
   "version": "1.0.0",
   "description": "DICOM viewer using vtk.js",
-  "main": "src/index.js",
+  "main": "src/index2d.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "webpack serve --mode=development",
+    "dev": "webpack serve --port 9000 --mode=development",
     "build": "webpack --progress --mode=production"
   },
   "author": "Jean-Yves Yang",

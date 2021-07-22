@@ -4,7 +4,7 @@ const vtkRules = require('vtk.js/Utilities/config/dependency.js').webpack.core.r
 
 module.exports = {
   entry: {
-    app: path.join(__dirname, 'src', 'index.js'),
+    app: path.join(__dirname, 'src', 'index2d.js'),
   },
   output: {
     path: path.join(__dirname, 'dist'),
